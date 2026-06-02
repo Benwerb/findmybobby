@@ -5,8 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import GpxParser from 'gpxparser'
 
-// AMBBR race is in the Santa Cruz mountains area — update if needed
-const DEFAULT_CENTER = [37.05, -122.05]
+const DEFAULT_CENTER = [38.962, -119.940]
 const DEFAULT_ZOOM = 12
 
 // Fix default Leaflet marker icon paths broken by Vite's asset hashing
