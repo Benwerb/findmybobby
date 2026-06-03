@@ -39,7 +39,7 @@ async function loadGpxRoute() {
     if (!res.ok) return null
     const text = await res.text()
     const doc = new DOMParser().parseFromString(text, 'text/xml')
-    const points = Array.from(doc.querySelectorAll('trkpt'))
+    const points = Array.from(doc.getElementsByTagName('trkpt'))
       .map((pt) => [parseFloat(pt.getAttribute('lat')), parseFloat(pt.getAttribute('lon'))])
       .filter(([lat, lon]) => !isNaN(lat) && !isNaN(lon))
     return points.length > 1 ? points : null
