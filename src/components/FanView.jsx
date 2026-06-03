@@ -110,7 +110,10 @@ export default function FanView() {
   return (
     <div className="fan-view">
       <div className="fan-header">
-        <h2 className="fan-title">🚴 Find My Bobby</h2>
+        <div className="fan-title-group">
+          <h2 className="fan-title">🚴 Find My Bobby</h2>
+          <span className="fan-subtitle">Bobby's big race day!</span>
+        </div>
         <div className="fan-status">
           {bobbyPos
             ? <span className="live-badge">● Live</span>
