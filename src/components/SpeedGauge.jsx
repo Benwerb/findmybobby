@@ -36,7 +36,7 @@ export default function SpeedGauge({ speedMph }) {
   const [nx, ny] = pt(needleAngle, INNER_R - 2)
 
   return (
-    <svg viewBox="0 0 120 70" width="130" height="76" aria-label={`${speed.toFixed(1)} mph`}>
+    <svg viewBox="0 0 120 70" width="260" height="152" aria-label={`${speed.toFixed(1)} mph`}>
       {/* Background track */}
       <path d={sector(180, 0, OUTER_R, INNER_R)} fill="#1a1a1a" />
 
