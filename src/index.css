@@ -183,6 +183,12 @@ html, body, #root {
   margin-bottom: 0;
 }
 
+.fan-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
 .fan-status {
   display: flex;
   flex-direction: column;

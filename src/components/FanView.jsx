@@ -63,7 +63,7 @@ async function loadGpxRoute() {
   }
 }
 
-export default function FanView({ onBack }) {
+export default function FanView() {
   const [bobbyPos, setBobbyPos]   = useState(null)
   const [speedMs, setSpeedMs]     = useState(null)
   const [routePoints, setRoutePoints] = useState(null)
@@ -110,7 +110,7 @@ export default function FanView({ onBack }) {
   return (
     <div className="fan-view">
       <div className="fan-header">
-        <button className="back-btn" onClick={onBack}>← Back</button>
+        <h2 className="fan-title">🚴 Find My Bobby</h2>
         <div className="fan-status">
           {bobbyPos
             ? <span className="live-badge">● Live</span>
