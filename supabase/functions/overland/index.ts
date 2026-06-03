@@ -40,7 +40,9 @@ Deno.serve(async (req) => {
   const accuracy = latest.properties.horizontal_accuracy ?? null
   const updated_at = latest.properties.timestamp
   // speed arrives in m/s; -1 means unknown
-  const speed = (latest.properties.speed ?? -1) >= 0 ? latest.properties.speed : null
+  const rawSpeed = latest.properties.speed
+  const speed = rawSpeed != null && rawSpeed >= 0 ? rawSpeed : null
+  console.log('props:', JSON.stringify(latest.properties))
 
   const { error } = await supabase
     .from('bobby_location')
