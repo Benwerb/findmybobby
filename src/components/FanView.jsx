@@ -3,7 +3,6 @@ import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
-import GpxParser from 'gpxparser'
 
 const DEFAULT_CENTER = [38.962, -119.940]
 const DEFAULT_ZOOM = 12
@@ -39,10 +38,11 @@ async function loadGpxRoute() {
     const res = await fetch('/route.gpx')
     if (!res.ok) return null
     const text = await res.text()
-    const gpx = new GpxParser()
-    gpx.parse(text)
-    if (!gpx.tracks.length) return null
-    return gpx.tracks[0].points.map((p) => [p.lat, p.lon])
+    const doc = new DOMParser().parseFromString(text, 'text/xml')
+    const points = Array.from(doc.querySelectorAll('trkpt'))
+      .map((pt) => [parseFloat(pt.getAttribute('lat')), parseFloat(pt.getAttribute('lon'))])
+      .filter(([lat, lon]) => !isNaN(lat) && !isNaN(lon))
+    return points.length > 1 ? points : null
   } catch {
     return null
   }
