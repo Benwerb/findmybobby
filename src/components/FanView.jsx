@@ -3,11 +3,11 @@ import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
+import SpeedGauge from './SpeedGauge'
 
 const DEFAULT_CENTER = [38.962, -119.940]
 const DEFAULT_ZOOM = 12
 
-// Fix default Leaflet marker icon paths broken by Vite's asset hashing
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -37,7 +37,7 @@ function makeLabelIcon(emoji, label) {
   })
 }
 
-const startIcon = makeLabelIcon('🟢', 'Start')
+const startIcon  = makeLabelIcon('🟢', 'Start')
 const finishIcon = makeLabelIcon('🏁', 'Finish')
 
 function MapPanner({ position }) {
@@ -50,7 +50,7 @@ function MapPanner({ position }) {
 
 async function loadGpxRoute() {
   try {
-    const res = await fetch('/findmybobby/route.gpx')
+    const res = await fetch(`${import.meta.env.BASE_URL}route.gpx`)
     if (!res.ok) return null
     const text = await res.text()
     const doc = new DOMParser().parseFromString(text, 'text/xml')
@@ -63,21 +63,14 @@ async function loadGpxRoute() {
   }
 }
 
-function formatSpeed(metersPerSec) {
-  if (metersPerSec == null) return null
-  return (metersPerSec * 2.23694).toFixed(1)
-}
-
 export default function FanView({ onBack }) {
-  const [bobbyPos, setBobbyPos] = useState(null)
-  const [speed, setSpeed] = useState(null)
+  const [bobbyPos, setBobbyPos]   = useState(null)
+  const [speedMs, setSpeedMs]     = useState(null)
   const [routePoints, setRoutePoints] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
   const channelRef = useRef(null)
 
-  useEffect(() => {
-    loadGpxRoute().then(setRoutePoints)
-  }, [])
+  useEffect(() => { loadGpxRoute().then(setRoutePoints) }, [])
 
   useEffect(() => {
     supabase
@@ -88,7 +81,7 @@ export default function FanView({ onBack }) {
       .then(({ data }) => {
         if (data && data.latitude !== 0) {
           setBobbyPos([data.latitude, data.longitude])
-          setSpeed(data.speed)
+          setSpeedMs(data.speed)
           setLastUpdated(data.updated_at)
         }
       })
@@ -100,35 +93,28 @@ export default function FanView({ onBack }) {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'bobby_location' },
-        (payload) => {
-          const { latitude, longitude, speed: s, updated_at } = payload.new
-          setBobbyPos([latitude, longitude])
-          setSpeed(s)
-          setLastUpdated(updated_at)
+        ({ new: row }) => {
+          setBobbyPos([row.latitude, row.longitude])
+          setSpeedMs(row.speed)
+          setLastUpdated(row.updated_at)
         }
       )
       .subscribe()
-
-    return () => {
-      supabase.removeChannel(channelRef.current)
-    }
+    return () => supabase.removeChannel(channelRef.current)
   }, [])
 
-  const startPoint = routePoints?.[0]
-  const finishPoint = routePoints?.[routePoints.length - 1]
-  const mph = formatSpeed(speed)
+  const startPoint  = routePoints?.[0]
+  const finishPoint = routePoints?.[routePoints?.length - 1]
+  const speedMph    = speedMs != null ? speedMs * 2.23694 : null
 
   return (
     <div className="fan-view">
       <div className="fan-header">
         <button className="back-btn" onClick={onBack}>← Back</button>
         <div className="fan-status">
-          {bobbyPos ? (
-            <span className="live-badge">● Live</span>
-          ) : (
-            <span className="waiting-badge">Waiting for Bobby…</span>
-          )}
-          {mph && <span className="speed-badge">{mph} mph</span>}
+          {bobbyPos
+            ? <span className="live-badge">● Live</span>
+            : <span className="waiting-badge">Waiting for Bobby…</span>}
           {lastUpdated && (
             <span className="last-updated">
               Updated: {new Date(lastUpdated).toLocaleTimeString()}
@@ -137,49 +123,43 @@ export default function FanView({ onBack }) {
         </div>
       </div>
 
-      <MapContainer
-        center={DEFAULT_CENTER}
-        zoom={DEFAULT_ZOOM}
-        className="map"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+      <div className="map-wrapper">
+        <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className="map">
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
 
-        {routePoints && routePoints.length > 1 && (
-          <Polyline positions={routePoints} color="#e65c00" weight={4} opacity={0.8} />
-        )}
+          {routePoints && routePoints.length > 1 && (
+            <Polyline positions={routePoints} color="#e65c00" weight={4} opacity={0.8} />
+          )}
 
-        {startPoint && (
-          <Marker position={startPoint} icon={startIcon}>
-            <Popup>Race start</Popup>
-          </Marker>
-        )}
+          {startPoint  && <Marker position={startPoint}  icon={startIcon}><Popup>Race start</Popup></Marker>}
+          {finishPoint && <Marker position={finishPoint} icon={finishIcon}><Popup>Race finish</Popup></Marker>}
 
-        {finishPoint && (
-          <Marker position={finishPoint} icon={finishIcon}>
-            <Popup>Race finish</Popup>
-          </Marker>
-        )}
+          {bobbyPos && (
+            <Marker position={bobbyPos} icon={bobbyIcon}>
+              <Popup>
+                <strong>Bobby is here!</strong>
+                {speedMph != null && <><br />{speedMph.toFixed(1)} mph</>}
+                <br />{lastUpdated && new Date(lastUpdated).toLocaleTimeString()}
+              </Popup>
+            </Marker>
+          )}
+
+          {bobbyPos && <MapPanner position={bobbyPos} />}
+        </MapContainer>
 
         {bobbyPos && (
-          <Marker position={bobbyPos} icon={bobbyIcon}>
-            <Popup>
-              <strong>Bobby is here!</strong>
-              {mph && <><br />{mph} mph</>}
-              <br />
-              {lastUpdated && new Date(lastUpdated).toLocaleTimeString()}
-            </Popup>
-          </Marker>
+          <div className="gauge-overlay">
+            <SpeedGauge speedMph={speedMph} />
+          </div>
         )}
-
-        {bobbyPos && <MapPanner position={bobbyPos} />}
-      </MapContainer>
+      </div>
 
       {!routePoints && (
         <p className="route-notice">
-          No route loaded — drop a <code>route.gpx</code> in the <code>public/</code> folder to show the race route.
+          No route loaded — drop a <code>route.gpx</code> in the <code>public/</code> folder.
         </p>
       )}
     </div>
