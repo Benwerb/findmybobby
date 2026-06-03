@@ -24,7 +24,22 @@ const bobbyIcon = new L.Icon({
   shadowSize: [41, 41],
 })
 
-// Helper: pan map to position when it changes
+function makeLabelIcon(emoji, label) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+      <div style="background:white;border:2px solid #333;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${emoji}</div>
+      <div style="background:white;border:1px solid #ccc;border-radius:4px;padding:1px 5px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.2)">${label}</div>
+    </div>`,
+    iconSize: [60, 52],
+    iconAnchor: [30, 52],
+    popupAnchor: [0, -54],
+  })
+}
+
+const startIcon = makeLabelIcon('🟢', 'Start')
+const finishIcon = makeLabelIcon('🏁', 'Finish')
+
 function MapPanner({ position }) {
   const map = useMap()
   useEffect(() => {
@@ -35,7 +50,7 @@ function MapPanner({ position }) {
 
 async function loadGpxRoute() {
   try {
-    const res = await fetch('/route.gpx')
+    const res = await fetch('/findmybobby/route.gpx')
     if (!res.ok) return null
     const text = await res.text()
     const doc = new DOMParser().parseFromString(text, 'text/xml')
@@ -48,33 +63,37 @@ async function loadGpxRoute() {
   }
 }
 
+function formatSpeed(metersPerSec) {
+  if (metersPerSec == null) return null
+  return (metersPerSec * 2.23694).toFixed(1)
+}
+
 export default function FanView({ onBack }) {
   const [bobbyPos, setBobbyPos] = useState(null)
+  const [speed, setSpeed] = useState(null)
   const [routePoints, setRoutePoints] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
   const channelRef = useRef(null)
 
-  // Load GPX route on mount
   useEffect(() => {
     loadGpxRoute().then(setRoutePoints)
   }, [])
 
-  // Fetch Bobby's last known position on mount
   useEffect(() => {
     supabase
       .from('bobby_location')
-      .select('latitude,longitude,updated_at')
+      .select('latitude,longitude,speed,updated_at')
       .eq('id', 1)
       .single()
       .then(({ data }) => {
         if (data && data.latitude !== 0) {
           setBobbyPos([data.latitude, data.longitude])
+          setSpeed(data.speed)
           setLastUpdated(data.updated_at)
         }
       })
   }, [])
 
-  // Real-time subscription for live updates
   useEffect(() => {
     channelRef.current = supabase
       .channel('bobby_location_changes')
@@ -82,8 +101,9 @@ export default function FanView({ onBack }) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'bobby_location' },
         (payload) => {
-          const { latitude, longitude, updated_at } = payload.new
+          const { latitude, longitude, speed: s, updated_at } = payload.new
           setBobbyPos([latitude, longitude])
+          setSpeed(s)
           setLastUpdated(updated_at)
         }
       )
@@ -93,6 +113,10 @@ export default function FanView({ onBack }) {
       supabase.removeChannel(channelRef.current)
     }
   }, [])
+
+  const startPoint = routePoints?.[0]
+  const finishPoint = routePoints?.[routePoints.length - 1]
+  const mph = formatSpeed(speed)
 
   return (
     <div className="fan-view">
@@ -104,16 +128,17 @@ export default function FanView({ onBack }) {
           ) : (
             <span className="waiting-badge">Waiting for Bobby…</span>
           )}
+          {mph && <span className="speed-badge">{mph} mph</span>}
           {lastUpdated && (
             <span className="last-updated">
-              Last update: {new Date(lastUpdated).toLocaleTimeString()}
+              Updated: {new Date(lastUpdated).toLocaleTimeString()}
             </span>
           )}
         </div>
       </div>
 
       <MapContainer
-        center={bobbyPos || DEFAULT_CENTER}
+        center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
         className="map"
       >
@@ -126,10 +151,23 @@ export default function FanView({ onBack }) {
           <Polyline positions={routePoints} color="#e65c00" weight={4} opacity={0.8} />
         )}
 
+        {startPoint && (
+          <Marker position={startPoint} icon={startIcon}>
+            <Popup>Race start</Popup>
+          </Marker>
+        )}
+
+        {finishPoint && (
+          <Marker position={finishPoint} icon={finishIcon}>
+            <Popup>Race finish</Popup>
+          </Marker>
+        )}
+
         {bobbyPos && (
           <Marker position={bobbyPos} icon={bobbyIcon}>
             <Popup>
               <strong>Bobby is here!</strong>
+              {mph && <><br />{mph} mph</>}
               <br />
               {lastUpdated && new Date(lastUpdated).toLocaleTimeString()}
             </Popup>

@@ -201,6 +201,12 @@ html, body, #root {
   font-size: 0.85rem;
 }
 
+.speed-badge {
+  color: var(--orange);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
 .last-updated {
   color: var(--muted);
   font-size: 0.75rem;

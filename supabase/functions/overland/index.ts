@@ -33,16 +33,18 @@ Deno.serve(async (req) => {
   // Overland sends oldest→newest; take the last entry
   const latest = locations[locations.length - 1] as {
     geometry: { coordinates: [number, number] }
-    properties: { timestamp: string; horizontal_accuracy?: number }
+    properties: { timestamp: string; horizontal_accuracy?: number; speed?: number }
   }
 
   const [longitude, latitude] = latest.geometry.coordinates
   const accuracy = latest.properties.horizontal_accuracy ?? null
   const updated_at = latest.properties.timestamp
+  // speed arrives in m/s; -1 means unknown
+  const speed = (latest.properties.speed ?? -1) >= 0 ? latest.properties.speed : null
 
   const { error } = await supabase
     .from('bobby_location')
-    .upsert({ id: 1, latitude, longitude, accuracy, updated_at })
+    .upsert({ id: 1, latitude, longitude, accuracy, speed, updated_at })
 
   if (error) {
     console.error('Supabase upsert error:', error.message)
