@@ -1,13 +1,13 @@
-const CX = 60, CY = 65
-const OUTER_R = 55, INNER_R = 40
+const CX = 100, CY = 110
+const OUTER_R = 88, INNER_R = 63
 const MAX_SPEED = 35
+const NUMBER_R = OUTER_R + 16
 
 function pt(angleDeg, r) {
-  const rad = (angleDeg * Math.PI) / 180
+  const rad = angleDeg * Math.PI / 180
   return [+(CX + r * Math.cos(rad)).toFixed(3), +(CY - r * Math.sin(rad)).toFixed(3)]
 }
 
-// Annular sector counterclockwise from startAngle → endAngle (standard math angles)
 function sector(startAngle, endAngle, ro, ri) {
   const span = startAngle - endAngle
   const lg = span >= 180 ? 1 : 0
@@ -18,73 +18,88 @@ function sector(startAngle, endAngle, ro, ri) {
   return `M${ox1} ${oy1}A${ro} ${ro} 0 ${lg} 0 ${ox2} ${oy2}L${ix2} ${iy2}A${ri} ${ri} 0 ${lg} 1 ${ix1} ${iy1}Z`
 }
 
-// 0 mph → 180° (left), 35 mph → 0° (right), 17.5 mph → 90° (top)
 function speedToAngle(mph) {
   return 180 - (Math.min(Math.max(mph, 0), MAX_SPEED) / MAX_SPEED) * 180
 }
 
 const ZONES = [
-  { from: 0,  to: 10, fill: '#16a34a' },  // green
-  { from: 10, to: 20, fill: '#ca8a04' },  // yellow
-  { from: 20, to: 30, fill: '#dc2626' },  // red
-  { from: 30, to: 35, fill: '#7f1d1d' },  // dark red
+  { from: 0,  to: 10, fill: '#16a34a' },
+  { from: 10, to: 20, fill: '#ca8a04' },
+  { from: 20, to: 30, fill: '#dc2626' },
+  { from: 30, to: 35, fill: '#7f1d1d' },
 ]
+
+const ALL_TICKS  = Array.from({ length: 36 }, (_, i) => i)
+const MAJOR_TICKS = [0, 5, 10, 15, 20, 25, 30, 35]
 
 export default function SpeedGauge({ speedMph }) {
   const speed = Math.max(0, speedMph ?? 0)
-  const needleAngle = speedToAngle(speed)
-  const [nx, ny] = pt(needleAngle, INNER_R - 2)
+  const angle = speedToAngle(speed)
+  const [tipX, tipY] = pt(angle, INNER_R - 4)
+  const [lx, ly]    = pt(angle + 90, 5)
+  const [rx, ry]    = pt(angle - 90, 5)
 
   return (
-    <svg viewBox="0 0 120 70" width="260" height="152" aria-label={`${speed.toFixed(1)} mph`}>
-      {/* Background track */}
-      <path d={sector(180, 0, OUTER_R, INNER_R)} fill="#1a1a1a" />
+    <svg viewBox="-10 -5 220 120" width="280" height="153">
+      {/* Dark semicircle background */}
+      <path
+        d={`M${CX - OUTER_R - 6} ${CY} A${OUTER_R + 6} ${OUTER_R + 6} 0 1 1 ${CX + OUTER_R + 6} ${CY} Z`}
+        fill="#111"
+      />
 
       {/* Colored zone arcs */}
       {ZONES.map(({ from, to, fill }) => (
-        <path
-          key={from}
-          d={sector(speedToAngle(from), speedToAngle(to), OUTER_R - 1, INNER_R + 1)}
-          fill={fill}
-        />
+        <path key={from} d={sector(speedToAngle(from), speedToAngle(to), OUTER_R, INNER_R)} fill={fill} />
       ))}
 
-      {/* Zone boundary tick marks */}
-      {[10, 20, 30].map((mph) => {
+      {/* Tick marks */}
+      {ALL_TICKS.map((mph) => {
+        const isMajor = mph % 5 === 0
         const a = speedToAngle(mph)
-        const [x1, y1] = pt(a, OUTER_R + 2)
-        const [x2, y2] = pt(a, OUTER_R + 7)
-        return <line key={mph} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" />
+        const [x1, y1] = pt(a, OUTER_R + 3)
+        const [x2, y2] = pt(a, isMajor ? OUTER_R - 12 : OUTER_R - 5)
+        return (
+          <line
+            key={mph}
+            x1={x1} y1={y1} x2={x2} y2={y2}
+            stroke={isMajor ? 'white' : 'rgba(255,255,255,0.45)'}
+            strokeWidth={isMajor ? 2 : 1}
+            strokeLinecap="round"
+          />
+        )
       })}
 
-      {/* End labels */}
-      <text x="4"   y="68" fill="#888" fontSize="7" fontFamily="sans-serif">0</text>
-      <text x="108" y="68" fill="#888" fontSize="7" fontFamily="sans-serif">35</text>
+      {/* Numbers at major ticks */}
+      {MAJOR_TICKS.map((mph) => {
+        const [x, y] = pt(speedToAngle(mph), NUMBER_R)
+        return (
+          <text
+            key={mph}
+            x={x} y={y}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="white"
+            fontSize="9"
+            fontWeight="600"
+            fontFamily="sans-serif"
+          >
+            {mph}
+          </text>
+        )
+      })}
 
-      {/* Needle */}
-      <line x1={CX} y1={CY} x2={nx} y2={ny} stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx={CX} cy={CY} r="5"   fill="#333" />
-      <circle cx={CX} cy={CY} r="2.5" fill="white" />
+      {/* Needle (triangle from center to arc) */}
+      <polygon points={`${tipX},${tipY} ${lx},${ly} ${rx},${ry}`} fill="white" />
+
+      {/* Center cap */}
+      <circle cx={CX} cy={CY} r="9" fill="#222" />
+      <circle cx={CX} cy={CY} r="5" fill="white" />
 
       {/* Speed readout */}
-      <text
-        x={CX} y="53"
-        textAnchor="middle"
-        fill="white"
-        fontSize="18"
-        fontWeight="bold"
-        fontFamily="sans-serif"
-      >
+      <text x={CX} y={CY - 26} textAnchor="middle" fill="white" fontSize="26" fontWeight="bold" fontFamily="sans-serif">
         {speed >= 10 ? speed.toFixed(0) : speed.toFixed(1)}
       </text>
-      <text
-        x={CX} y="63"
-        textAnchor="middle"
-        fill="#999"
-        fontSize="7.5"
-        fontFamily="sans-serif"
-        letterSpacing="0.5"
-      >
+      <text x={CX} y={CY - 12} textAnchor="middle" fill="#aaa" fontSize="9" fontFamily="sans-serif" letterSpacing="1">
         MPH
       </text>
     </svg>
