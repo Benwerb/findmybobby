@@ -113,16 +113,6 @@ export default function FanView() {
           <h2 className="fan-title">🚴 Find My Bobby</h2>
           <span className="fan-subtitle">Bobby's big race day!</span>
         </div>
-        <div className="fan-status">
-          {bobbyPos
-            ? <span className="live-badge">● Live</span>
-            : <span className="waiting-badge">Waiting for Bobby…</span>}
-          {lastUpdated && (
-            <span className="last-updated">
-              Updated: {new Date(lastUpdated).toLocaleTimeString()}
-            </span>
-          )}
-        </div>
       </div>
 
       <div className="map-wrapper">
@@ -152,18 +142,21 @@ export default function FanView() {
           {bobbyPos && <MapPanner position={bobbyPos} />}
         </MapContainer>
 
-        {bobbyPos && (
-          <div className="gauge-overlay">
-            <SpeedGauge speedMph={speedMph} />
-          </div>
-        )}
       </div>
 
-      {!routePoints && (
-        <p className="route-notice">
-          No route loaded — drop a <code>route.gpx</code> in the <code>public/</code> folder.
-        </p>
-      )}
+      <div className="bottom-bar">
+        <SpeedGauge speedMph={speedMph} />
+        <div className="bottom-bar-status">
+          {bobbyPos
+            ? <span className="live-badge">● Live</span>
+            : <span className="waiting-badge">Waiting…</span>}
+          {lastUpdated && (
+            <span className="last-updated">
+              {new Date(lastUpdated).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
